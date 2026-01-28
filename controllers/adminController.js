@@ -1,4 +1,6 @@
 const Application = require("../models/Application");
+const User = require("../models/User");
+
 const digitalSignature = require("../security/signature/digitalSignature");
 const aesUtil = require("../security/encryption/aesUtil");
 const rsaUtil = require("../security/encryption/rsaUtil");
@@ -11,7 +13,7 @@ const getVerifiedApplications = async (req, res) => {
   try {
     // Admin might want to see all, but mostly focuses on 'verified' ones ready for approval
     const applications = await Application.find()
-      .populate("studentId", "email username")
+      .populate("studentId", "email username accountStatus")
       .populate("documents");
 
     // Return summary or decrypted?
@@ -21,7 +23,7 @@ const getVerifiedApplications = async (req, res) => {
         const aesKey = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
         return {
           _id: app._id,
-          student: app.studentId,
+          student: app.studentId, // Ensure this contains accountStatus
           fullName: app.fullName,
           status: app.status,
           verificationStatus: app.verificationStatus,
@@ -151,8 +153,66 @@ const rejectApplication = async (req, res) => {
   }
 };
 
+// @desc    Get all users (students, verifiers, admins)
+// @route   GET /api/admin/users
+// @access  Private (Admin)
+const getAllUsers = async (req, res) => {
+  try {
+    // Fetch all users, no role filter
+    const users = await User.find({})
+      .select("-password -mfaSecret -totpSecret -passwordHistory")
+      .lean();
+
+    const usersWithStatus = users.map((user) => ({
+      ...user,
+      isSuperAdmin:
+        user.email.toLowerCase() ===
+        process.env.SUPER_ADMIN_EMAIL.toLowerCase(),
+    }));
+
+    res.json(usersWithStatus);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Remove a staff member
+// @route   DELETE /api/admin/staff/:id
+// @access  Private (Admin)
+const removeStaff = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Prevent deleting self
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "Cannot delete yourself" });
+    }
+
+    // Prevent deleting Super Admin
+    if (user.email === process.env.SUPER_ADMIN_EMAIL) {
+      return res.status(403).json({ message: "Cannot delete Super Admin" });
+    }
+
+    // Delete any associated applications (if student)
+    await Application.deleteMany({ studentId: user._id });
+
+    // Hard delete as per plan
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "User and associated data removed" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getVerifiedApplications,
   approveScholarship,
   rejectApplication,
+  getAllUsers,
+  removeStaff,
 };

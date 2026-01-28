@@ -28,6 +28,11 @@ const registerUser = async (req, res) => {
     // Hash password
     const hashedPassword = await hashUtil.hashPassword(password);
 
+    // Generate Verification OTP
+    const otp = otpService.generateOTP();
+    const expiry = otpService.generateExpiry();
+    const hashedOTP = await hashUtil.hashPassword(otp);
+
     // Create user
     const user = await User.create({
       username,
@@ -37,15 +42,25 @@ const registerUser = async (req, res) => {
       accountStatus: "pending_verification", // Requires email link first (LoA 1 -> 2)
       mfaEnabled: true,
       mfaType: "email_otp",
+      mfaSecret: hashedOTP, // Save hashed OTP
+      mfaExpiry: expiry,
     });
 
     if (user) {
+      // Send OTP Email
+      console.log("DEV OTP:", otp);
+      const emailSubject = "Verify your Email";
+      const emailBody = `Welcome to Secure Scholarship System. Your verification code is ${otp}. It expires in 5 minutes.`;
+      await emailService.sendEmail(user.email, emailSubject, emailBody);
+
       res.status(201).json({
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
-        message: "User registered successfully. Please login.",
+        message:
+          "Registration successful. Please check your email for verification code.",
+        mfaType: "email_otp",
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -156,7 +171,9 @@ const loginUser = async (req, res) => {
         await user.save();
 
         console.log("DEV OTP:", otp);
-        // await emailService.sendEmail(...)
+        const emailSubject = "Verification Code";
+        const emailBody = `Your OTP code is ${otp}. It expires in 5 minutes.`;
+        await emailService.sendEmail(user.email, emailSubject, emailBody);
 
         res.json({
           message: "OTP sent to your email",
@@ -204,6 +221,11 @@ const verifyOTP = async (req, res) => {
       user.mfaSecret = undefined;
       user.mfaExpiry = undefined;
 
+      // Activate account if pending verification
+      if (user.accountStatus === "pending_verification") {
+        user.accountStatus = "active";
+      }
+
       let newDeviceId = null;
       if (req.body.trustDevice) {
         newDeviceId = crypto.randomBytes(32).toString("hex");
@@ -244,11 +266,16 @@ const resendOTP = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Allow resend if OTP is expired OR if it's been a while (optional logic)
-    // For now, let's just force a new OTP.
-    // Or check if a valid one exists, but the user explicitly requested a resend because they didn't get it.
-    // To be safe against spam, we could enforce a cooldown.
-    // But the previous fix prevents login-spam. This is an explicit resend button.
+    // Check if OTP is still valid
+    if (user.mfaExpiry && user.mfaExpiry > Date.now()) {
+      const remainingTime = Math.ceil((user.mfaExpiry - Date.now()) / 1000);
+      if (remainingTime > 0) {
+        return res.status(400).json({
+          message: `Please wait ${remainingTime} seconds before resending.`,
+          remainingTime,
+        });
+      }
+    }
 
     // Generate new OTP
     const otp = otpService.generateOTP();
@@ -263,7 +290,7 @@ const resendOTP = async (req, res) => {
     console.log("DEV OTP (RESEND):", otp);
     await emailService.sendEmail(
       user.email,
-      "Your New OTP Code",
+      "Verification Code",
       `Your new OTP code is ${otp}. It expires in 5 minutes.`,
     );
 
@@ -397,6 +424,30 @@ const completeOnboarding = async (req, res) => {
   }
 };
 
+// @desc    Check OTP Status (Remaining Time)
+// @route   POST /api/auth/otp-status
+// @access  Public
+const checkOtpStatus = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.mfaExpiry || user.mfaExpiry < Date.now()) {
+      return res.json({ remainingTime: 0 });
+    }
+
+    const remainingTime = Math.ceil((user.mfaExpiry - Date.now()) / 1000);
+    res.json({ remainingTime: remainingTime > 0 ? remainingTime : 0 });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const verifyTOTP = async (req, res) => {
   const { userId, token } = req.body;
 
@@ -464,6 +515,7 @@ module.exports = {
   loginUser,
   verifyOTP,
   resendOTP,
+  checkOtpStatus,
   onboardEmployee,
   verifyTOTP,
   completeOnboarding,
