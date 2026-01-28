@@ -42,6 +42,11 @@ const applicationSchema = new mongoose.Schema(
       iv: String,
       content: String,
     },
+    // File Upload Paths (Reference to distinct Document model)
+    documents: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Document",
+    },
     // Hybrid Encryption: Store the AES key encrypted with Server's RSA Public Key
     // This allows the server to decrypt the AES key, then decrypt the data.
     encryptedAesKey: {

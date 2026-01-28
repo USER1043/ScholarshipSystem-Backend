@@ -10,10 +10,9 @@ const qrUtil = require("../security/encoding/qrUtil");
 const getVerifiedApplications = async (req, res) => {
   try {
     // Admin might want to see all, but mostly focuses on 'verified' ones ready for approval
-    const applications = await Application.find().populate(
-      "studentId",
-      "email username",
-    );
+    const applications = await Application.find()
+      .populate("studentId", "email username")
+      .populate("documents");
 
     // Return summary or decrypted?
     // Admin needs to see details to approve.
@@ -47,6 +46,7 @@ const getVerifiedApplications = async (req, res) => {
             : null,
 
           createdAt: app.createdAt,
+          documents: app.documents,
         };
       } catch (err) {
         return { _id: app._id, error: "Decryption failed" };

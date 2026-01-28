@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
+const upload = require("../middleware/uploadMiddleware");
 const {
   submitApplication,
   getMyApplications,
   verifySignature,
   verifyByQR,
+  serveDocument,
 } = require("../controllers/applicationController");
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
@@ -15,6 +17,11 @@ router.post(
   "/",
   protect,
   authorize("student"),
+  upload.fields([
+    { name: "incomeProof", maxCount: 1 },
+    { name: "marksheet", maxCount: 1 },
+    { name: "studentCertificate", maxCount: 1 },
+  ]),
   [
     check("bankDetails", "Bank Details are required").not().isEmpty(),
     check("idNumber", "Aadhar ID is required").not().isEmpty(),
@@ -36,6 +43,7 @@ router.post(
   submitApplication,
 );
 
+router.get("/documents/:filename", protect, serveDocument);
 router.get("/my", protect, authorize("student"), getMyApplications);
 router.get("/verify-signature/:id", protect, verifySignature);
 router.get("/verify-qr/:id", verifyByQR);

@@ -1,4 +1,5 @@
 const Application = require("../models/Application");
+const Document = require("../models/Document");
 const aesUtil = require("../security/encryption/aesUtil");
 const rsaUtil = require("../security/encryption/rsaUtil");
 const digitalSignature = require("../security/signature/digitalSignature");
@@ -37,7 +38,7 @@ const submitApplication = async (req, res) => {
     // without the server's Private Key (which should be stored securely/in memory/HSM).
     const encryptedAesKey = rsaUtil.encryptWithPublicKey(aesKey);
 
-    const application = await Application.create({
+    const application = new Application({
       studentId: req.user._id,
       fullName,
       instituteName,
@@ -61,6 +62,28 @@ const submitApplication = async (req, res) => {
       encryptedAesKey,
     });
 
+    // Save application first to get ID
+    await application.save();
+
+    // Create and save Document entry linked to application
+    const files = req.files || {};
+    // Only create if files exist (or create empty one?)
+    if (files.incomeProof || files.marksheet || files.studentCertificate) {
+      const doc = await Document.create({
+        applicationId: application._id,
+        studentId: req.user._id,
+        incomeProof: files.incomeProof ? files.incomeProof[0].filename : null,
+        marksheet: files.marksheet ? files.marksheet[0].filename : null,
+        studentCertificate: files.studentCertificate
+          ? files.studentCertificate[0].filename
+          : null,
+      });
+
+      // Update application with reference
+      application.documents = doc._id;
+      await application.save();
+    }
+
     res.status(201).json({
       message: "Application submitted successfully",
       applicationId: application._id,
@@ -78,7 +101,9 @@ const submitApplication = async (req, res) => {
 // ...
 const getMyApplications = async (req, res) => {
   try {
-    const applications = await Application.find({ studentId: req.user._id });
+    const applications = await Application.find({
+      studentId: req.user._id,
+    }).populate("documents");
 
     const decryptedApplications = await Promise.all(
       applications.map(async (app) => {
@@ -137,6 +162,7 @@ const getMyApplications = async (req, res) => {
             digitalSignature: app.digitalSignature, // Include signature
             dataHash: app.dataHash, // Include hash if needed
             signedAt: app.signedAt,
+            documents: app.documents,
             qrCode: qrCode,
           };
         } catch (err) {
@@ -250,9 +276,54 @@ const verifyByQR = async (req, res) => {
   }
 };
 
+const path = require("path");
+
+// ... existing code ...
+
+// @desc    Serve Uploaded Document
+// @route   GET /api/applications/documents/:filename
+const serveDocument = async (req, res) => {
+  try {
+    const filename = req.params.filename;
+
+    // Find metadata for security check
+    const doc = await Document.findOne({
+      $or: [
+        { incomeProof: filename },
+        { marksheet: filename },
+        { studentCertificate: filename },
+      ],
+    });
+
+    if (!doc) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    // Check Permissions
+    const isOwner = doc.studentId.toString() === req.user._id.toString();
+    const isStaff = req.user.role === "verifier" || req.user.role === "admin";
+
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const filePath = path.join(__dirname, "../uploads", filename);
+    res.download(filePath, (err) => {
+      if (err) {
+        // console.error("File download error:", err); // Suppress generic log
+        if (!res.headersSent)
+          res.status(500).json({ message: "Could not download file" });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 module.exports = {
   submitApplication,
   getMyApplications,
   verifySignature,
   verifyByQR,
+  serveDocument,
 };

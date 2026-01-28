@@ -7,10 +7,9 @@ const rsaUtil = require("../security/encryption/rsaUtil");
 // @access  Private (Verifier)
 const getAllApplications = async (req, res) => {
   try {
-    const applications = await Application.find().populate(
-      "studentId",
-      "username email",
-    );
+    const applications = await Application.find()
+      .populate("studentId", "username email")
+      .populate("documents");
 
     // Decrypt data for verification
     const decryptedApplications = applications.map((app) => {
@@ -54,6 +53,7 @@ const getAllApplications = async (req, res) => {
             : null,
 
           createdAt: app.createdAt,
+          documents: app.documents, // Pass documents to verifier
         };
       } catch (err) {
         return {
