@@ -137,8 +137,16 @@ const getMyApplications = async (req, res) => {
             _id: app._id,
             fullName: app.fullName,
             status: app.status,
-            verificationStatus: app.verificationStatus,
+            // Derive verification status for UI consistency
+            verificationStatus:
+              app.status === "Submitted"
+                ? "Pending"
+                : app.status === "Verified" || app.status === "Approved"
+                  ? "Verified"
+                  : "Rejected",
             verifierComments: app.verifierComments,
+            rejectionReason: app.rejectionReason, // Add rejection reason
+            rejectedAt: app.rejectedAt,
             instituteName: app.instituteName || "N/A",
             examType: app.examType || "N/A",
             currentGPA: academicDetails.currentGPA || "N/A",

@@ -76,7 +76,7 @@ const getAllApplications = async (req, res) => {
 // @route   PUT /api/verifier/applications/:id
 // @access  Private (Verifier)
 const verifyApplication = async (req, res) => {
-  const { status, comments } = req.body; // status: 'verified' or 'rejected'
+  const { status, comments } = req.body;
 
   try {
     const application = await Application.findById(req.params.id);
@@ -85,17 +85,18 @@ const verifyApplication = async (req, res) => {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    application.verificationStatus = status;
-    application.verifierComments = comments;
-
-    if (status === "verified") {
-      application.status = "verified"; // Ready for Admin approval
-    } else if (status === "rejected") {
-      application.status = "rejected";
+    // Role-Based Restriction: Verifiers can ONLY set status to 'Verified'
+    if (status !== "Verified") {
+      return res
+        .status(403)
+        .json({ message: "Verifiers can only mark applications as Verified." });
     }
 
+    application.status = "Verified";
+    application.verifierComments = comments;
+
     await application.save();
-    res.json({ message: "Application verification updated", application });
+    res.json({ message: "Application marked as Verified", application });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -70,31 +70,22 @@ const approveScholarship = async (req, res) => {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    if (application.verificationStatus !== "verified") {
-      return res
-        .status(400)
-        .json({ message: "Application not verified by staff yet" });
+    if (application.status !== "Verified") {
+      return res.status(400).json({
+        message: "Application must be Verified by staff before Approval",
+      });
     }
 
     // 1. Update status
-    application.status = "approved";
+    application.status = "Approved";
     await application.save();
 
     // 2. Create Digital Signature
     // We sign a hash of critical data: StudentID + ApplicationID + Status + Sensitive Encrypted Data
-    // Ideally we sign the DECRYPTED data (what the admin saw/verified) or the ENCRYPTED data (integrity of storage).
-    // Let's sign the ENCRYPTED content to verify DB integrity, OR decrypted to verify logical data.
-    // Requirement says "Hash the complete application data".
-    // Better to sign the immutable decrypted values (e.g. Identity/Bank) + Status.
-    // However, we only have encrypted components here.
-    // Let's sign the `encryptedAesKey` + `status` + `studentId` as a proxy for the whole record,
-    // OR sign the specific encrypted fields if we want to ensure *those* bits haven't flipped.
-    // Let's sign the canonical object of important fields.
-
     const dataToSign = {
       applicationId: application._id.toString(),
       studentId: application.studentId.toString(),
-      status: "approved",
+      status: "Approved",
       bankDetails: application.encryptedBankDetails,
       idNumber: application.encryptedIdNumber,
       incomeDetails: application.encryptedIncomeDetails,
@@ -112,8 +103,6 @@ const approveScholarship = async (req, res) => {
     application.signedBy = req.user._id;
     application.signedAt = Date.now();
 
-    await application.save();
-
     // 3. Generate QR Code for the Application ID
     const qrCode = await qrUtil.generateQRCode(application._id.toString());
 
@@ -127,4 +116,43 @@ const approveScholarship = async (req, res) => {
   }
 };
 
-module.exports = { getVerifiedApplications, approveScholarship };
+// @desc    Reject Scholarship Application
+// @route   POST /api/admin/reject/:id
+// @access  Private (Admin)
+const rejectApplication = async (req, res) => {
+  const { reason } = req.body;
+
+  try {
+    const application = await Application.findById(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    // Allow rejection from Submitted or Verified state?
+    // Requirement says "Verified" or "Submitted".
+    // Let's allow anytime before Approval.
+    if (application.status === "Approved") {
+      return res
+        .status(400)
+        .json({ message: "Cannot reject an already Approved application." });
+    }
+
+    application.status = "Rejected";
+    application.rejectedBy = req.user._id;
+    application.rejectedAt = Date.now();
+    application.rejectionReason = reason || "No reason provided";
+
+    await application.save();
+
+    res.json({ message: "Application Rejected", application });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  getVerifiedApplications,
+  approveScholarship,
+  rejectApplication,
+};

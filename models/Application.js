@@ -55,16 +55,22 @@ const applicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["submitted", "verified", "approved", "rejected"],
-      default: "submitted",
+      enum: ["Submitted", "Verified", "Approved", "Rejected"],
+      default: "Submitted",
     },
     verifierComments: {
       type: String,
     },
-    verificationStatus: {
+    // Admin Rejection Details
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    rejectedAt: {
+      type: Date,
+    },
+    rejectionReason: {
       type: String,
-      enum: ["pending", "verified", "rejected"],
-      default: "pending",
     },
     // Digital Signature Fields
     digitalSignature: {
