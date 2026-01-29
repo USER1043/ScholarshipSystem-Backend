@@ -80,7 +80,7 @@ const approveScholarship = async (req, res) => {
 
     // 1. Update status
     application.status = "Approved";
-    await application.save();
+    // Removed intermediate save() to ensure atomicity with signature
 
     // 2. Create Digital Signature
     // We sign a hash of critical data: StudentID + ApplicationID + Status + Sensitive Encrypted Data
@@ -95,6 +95,7 @@ const approveScholarship = async (req, res) => {
       examType: application.examType,
       academicDetails: application.encryptedAcademicDetails,
       aesKey: application.encryptedAesKey,
+      approvedBy: req.user._id.toString(), // Added for Non-Repudiation
     };
 
     const signatureBase64 = digitalSignature.signData(dataToSign);
@@ -107,6 +108,9 @@ const approveScholarship = async (req, res) => {
 
     // 3. Generate QR Code for the Application ID
     const qrCode = await qrUtil.generateQRCode(application._id.toString());
+
+    // Save EVERYTHING (Status + Signature + QR)
+    await application.save();
 
     res.json({
       message: "Scholarship Approved and Digitally Signed",

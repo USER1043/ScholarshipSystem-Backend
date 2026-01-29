@@ -51,7 +51,7 @@ const registerUser = async (req, res) => {
       console.log("DEV OTP:", otp);
       const emailSubject = "Verify your Email";
       const emailBody = `Welcome to Secure Scholarship System. Your verification code is ${otp}. It expires in 5 minutes.`;
-      await emailService.sendEmail(user.email, emailSubject, emailBody);
+      //await emailService.sendEmail(user.email, emailSubject, emailBody);
 
       res.status(201).json({
         _id: user._id,
@@ -152,8 +152,13 @@ const loginUser = async (req, res) => {
         }
       } else {
         // EMAIL OTP (Student Legacy Flow)
+        console.log(`[LOGIN] Checking existing OTP for user: ${user.email}`);
+
         // Check if OTP already exists and is valid
         if (user.mfaExpiry > Date.now()) {
+          console.log(
+            `[LOGIN] OTP already valid until ${user.mfaExpiry}. Skipping generation.`,
+          );
           return res.json({
             message: "OTP already sent. Please check your email.",
             userId: user._id,
@@ -162,6 +167,7 @@ const loginUser = async (req, res) => {
           });
         }
 
+        console.log(`[LOGIN] Generating NEW OTP for user: ${user.email}`);
         const otp = otpService.generateOTP();
         const expiry = otpService.generateExpiry();
         const hashedOTP = await hashUtil.hashPassword(otp);
@@ -173,7 +179,13 @@ const loginUser = async (req, res) => {
         console.log("DEV OTP:", otp);
         const emailSubject = "Verification Code";
         const emailBody = `Your OTP code is ${otp}. It expires in 5 minutes.`;
-        await emailService.sendEmail(user.email, emailSubject, emailBody);
+
+        try {
+          await emailService.sendEmail(user.email, emailSubject, emailBody);
+          console.log(`[LOGIN] Email sent successfully to ${user.email}`);
+        } catch (emailError) {
+          console.error(`[LOGIN] Failed to send email: ${emailError.message}`);
+        }
 
         res.json({
           message: "OTP sent to your email",

@@ -22,6 +22,7 @@ const getAllApplications = async (req, res) => {
           fullName: app.fullName,
           status: app.status,
           verificationStatus: app.verificationStatus,
+          verifierComments: app.verifierComments, // Include comments
           // Verifier needs to see the documents/details to verify them
           bankDetails: aesUtil.decrypt(
             app.encryptedBankDetails.content,

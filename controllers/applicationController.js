@@ -103,7 +103,9 @@ const getMyApplications = async (req, res) => {
   try {
     const applications = await Application.find({
       studentId: req.user._id,
-    }).populate("documents");
+    })
+      .populate("documents")
+      .populate("signedBy", "username email"); // Populate Admin details
 
     const decryptedApplications = await Promise.all(
       applications.map(async (app) => {
@@ -112,7 +114,7 @@ const getMyApplications = async (req, res) => {
           const aesKey = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
 
           let qrCode = null;
-          if (app.status === "approved") {
+          if (app.status === "Approved") {
             // Generate QR Code encoding the Public Verify URL
             // Using hardcoded localhost for demo environment
             const verifyUrl = `http://localhost:5000/api/applications/verify-qr/${app._id}`;
@@ -169,6 +171,7 @@ const getMyApplications = async (req, res) => {
             createdAt: app.createdAt,
             digitalSignature: app.digitalSignature, // Include signature
             dataHash: app.dataHash, // Include hash if needed
+            signedBy: app.signedBy, // Include populated Admin details
             signedAt: app.signedAt,
             documents: app.documents,
             qrCode: qrCode,
@@ -203,6 +206,12 @@ const verifySignature = async (req, res) => {
       return res.status(404).json({ message: "Application not found" });
     }
 
+    // Debug Logs for Digital Signature
+    console.log(`[VERIFY] App ID: ${application._id}`);
+    console.log(
+      `[VERIFY] Stored Signature: ${application.digitalSignature ? "EXISTS" : "MISSING"}`,
+    );
+
     if (!application.digitalSignature) {
       return res.status(400).json({ message: "Application is not signed yet" });
     }
@@ -211,7 +220,7 @@ const verifySignature = async (req, res) => {
     const dataToVerify = {
       applicationId: application._id.toString(),
       studentId: application.studentId.toString(),
-      status: "approved", // Signature is only for approved state
+      status: "Approved", // Hardcoded to match signing logic?
       bankDetails: application.encryptedBankDetails,
       idNumber: application.encryptedIdNumber,
       incomeDetails: application.encryptedIncomeDetails,
@@ -219,17 +228,30 @@ const verifySignature = async (req, res) => {
       examType: application.examType,
       academicDetails: application.encryptedAcademicDetails,
       aesKey: application.encryptedAesKey,
+      approvedBy: application.signedBy
+        ? application.signedBy.toString()
+        : undefined, // Ensure this matches exactly!
     };
+
+    console.log(
+      "[VERIFY] Data to Verify Objects:",
+      JSON.stringify(dataToVerify, null, 2),
+    );
 
     // 1. Verify Hash Integrity
     const computedHash = digitalSignature.hashData(dataToVerify);
     const hashMatch = computedHash === application.dataHash;
+
+    console.log(`[VERIFY] Stored Hash:   ${application.dataHash}`);
+    console.log(`[VERIFY] Computed Hash: ${computedHash}`);
+    console.log(`[VERIFY] Hash Match:    ${hashMatch}`);
 
     // 2. Verify Digital Signature
     const signatureValid = digitalSignature.verifySignature(
       dataToVerify,
       application.digitalSignature,
     );
+    console.log(`[VERIFY] Signature Valid: ${signatureValid}`);
 
     if (hashMatch && signatureValid) {
       res.json({
