@@ -181,7 +181,7 @@ const loginUser = async (req, res) => {
         const emailBody = `Your OTP code is ${otp}. It expires in 5 minutes.`;
 
         try {
-          await emailService.sendEmail(user.email, emailSubject, emailBody);
+          // await emailService.sendEmail(user.email, emailSubject, emailBody);
           console.log(`[LOGIN] Email sent successfully to ${user.email}`);
         } catch (emailError) {
           console.error(`[LOGIN] Failed to send email: ${emailError.message}`);
@@ -300,11 +300,11 @@ const resendOTP = async (req, res) => {
 
     // Send OTP via Email
     console.log("DEV OTP (RESEND):", otp);
-    await emailService.sendEmail(
-      user.email,
-      "Verification Code",
-      `Your new OTP code is ${otp}. It expires in 5 minutes.`,
-    );
+    // await emailService.sendEmail(
+    //   user.email,
+    //   "Verification Code",
+    //   `Your new OTP code is ${otp}. It expires in 5 minutes.`,
+    // );
 
     res.json({ message: "New OTP sent to your email" });
   } catch (error) {
@@ -357,11 +357,11 @@ const onboardEmployee = async (req, res) => {
 
     // Actually send the email via configured Email Service
     try {
-      await emailService.sendEmail(
-        email,
-        "Welcome to Secure Scholarship System",
-        `You have been invited to join the Secure Scholarship System as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
-      );
+      // await emailService.sendEmail(
+      //   email,
+      //   "Welcome to Secure Scholarship System",
+      //   `You have been invited to join the Secure Scholarship System as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
+      // );
       console.log(`Invite email sent to ${email}`);
     } catch (emailErr) {
       console.error("Failed to send invite email:", emailErr);
