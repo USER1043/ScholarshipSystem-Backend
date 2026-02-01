@@ -9,12 +9,15 @@ const {
   verifyTOTP,
   completeOnboarding,
   checkOtpStatus,
+  getPublicKey,
 } = require("../controllers/authController");
 const { loginLimiter } = require("../middleware/rateLimiter");
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/roleMiddleware");
 const { check } = require("express-validator");
 const { validate } = require("../middleware/validateInput");
+
+router.get("/public-key", getPublicKey);
 
 router.post(
   "/register",

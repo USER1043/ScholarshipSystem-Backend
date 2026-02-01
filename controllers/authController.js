@@ -1,3 +1,6 @@
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const hashUtil = require("../security/hashing/hashUtil");
@@ -531,4 +534,5 @@ module.exports = {
   onboardEmployee,
   verifyTOTP,
   completeOnboarding,
+  getPublicKey,
 };

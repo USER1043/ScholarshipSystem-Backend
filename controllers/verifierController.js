@@ -12,9 +12,11 @@ const getAllApplications = async (req, res) => {
       .populate("documents");
 
     // Decrypt data for verification
+    // Decrypt AES Key for Client-Side Decryption
     const decryptedApplications = applications.map((app) => {
       try {
-        const aesKey = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
+        const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
+        const aesKey = aesKeyBuffer.toString("hex");
 
         return {
           _id: app._id,
@@ -22,39 +24,22 @@ const getAllApplications = async (req, res) => {
           fullName: app.fullName,
           status: app.status,
           verificationStatus: app.verificationStatus,
-          verifierComments: app.verifierComments, // Include comments
-          // Verifier needs to see the documents/details to verify them
-          bankDetails: aesUtil.decrypt(
-            app.encryptedBankDetails.content,
-            app.encryptedBankDetails.iv,
-            aesKey,
-          ),
-          idNumber: aesUtil.decrypt(
-            app.encryptedIdNumber.content,
-            app.encryptedIdNumber.iv,
-            aesKey,
-          ),
-          incomeDetails: aesUtil.decrypt(
-            app.encryptedIncomeDetails.content,
-            app.encryptedIncomeDetails.iv,
-            aesKey,
-          ),
+          verifierComments: app.verifierComments,
 
-          // Decrypt Academic Info (Safety check for legacy applications)
+          // Pass Encrypted Data + Key
+          encryptedBankDetails: app.encryptedBankDetails,
+          encryptedIdNumber: app.encryptedIdNumber,
+          encryptedIncomeDetails: app.encryptedIncomeDetails,
+          encryptedAcademicDetails: app.encryptedAcademicDetails,
+
+          decryptedAesKey: aesKey,
+
+          // Legacy / Plain text fallback
           instituteName: app.instituteName || "N/A",
           examType: app.examType || "N/A",
-          academicDetails: app.encryptedAcademicDetails
-            ? JSON.parse(
-                aesUtil.decrypt(
-                  app.encryptedAcademicDetails.content,
-                  app.encryptedAcademicDetails.iv,
-                  aesKey,
-                ),
-              )
-            : null,
 
           createdAt: app.createdAt,
-          documents: app.documents, // Pass documents to verifier
+          documents: app.documents,
         };
       } catch (err) {
         return {
@@ -62,7 +47,7 @@ const getAllApplications = async (req, res) => {
           student: app.studentId,
           fullName: app.fullName,
           status: app.status,
-          error: "Failed to decrypt data",
+          error: "Failed to process security keys",
         };
       }
     });

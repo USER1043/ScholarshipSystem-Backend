@@ -20,38 +20,34 @@ const getVerifiedApplications = async (req, res) => {
     // Admin needs to see details to approve.
     const decryptedApplications = applications.map((app) => {
       try {
-        const aesKey = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
+        const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
+        const aesKey = aesKeyBuffer.toString("hex");
+
         return {
           _id: app._id,
-          student: app.studentId, // Ensure this contains accountStatus
+          student: app.studentId,
           fullName: app.fullName,
           status: app.status,
           verificationStatus: app.verificationStatus,
           verifierComments: app.verifierComments,
-          incomeDetails: aesUtil.decrypt(
-            app.encryptedIncomeDetails.content,
-            app.encryptedIncomeDetails.iv,
-            aesKey,
-          ),
 
-          // Decrypt Academic Info
+          // Pass Encrypted Data + Key
+          encryptedIncomeDetails: app.encryptedIncomeDetails,
+          encryptedAcademicDetails: app.encryptedAcademicDetails,
+          encryptedBankDetails: app.encryptedBankDetails,
+          encryptedIdNumber: app.encryptedIdNumber,
+
+          decryptedAesKey: aesKey,
+
+          // Keep non-sensitive plain text
           instituteName: app.instituteName || "N/A",
           examType: app.examType || "N/A",
-          academicDetails: app.encryptedAcademicDetails
-            ? JSON.parse(
-                aesUtil.decrypt(
-                  app.encryptedAcademicDetails.content,
-                  app.encryptedAcademicDetails.iv,
-                  aesKey,
-                ),
-              )
-            : null,
 
           createdAt: app.createdAt,
           documents: app.documents,
         };
       } catch (err) {
-        return { _id: app._id, error: "Decryption failed" };
+        return { _id: app._id, error: "Key processing details failed" };
       }
     });
 

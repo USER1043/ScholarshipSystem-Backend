@@ -11,32 +11,39 @@ const qrUtil = require("../security/encoding/qrUtil");
 const submitApplication = async (req, res) => {
   try {
     const {
-      bankDetails,
-      idNumber,
-      incomeDetails,
+      encryptedBankDetails,
+      encryptedIdNumber,
+      encryptedIncomeDetails,
+      encryptedAcademicDetails,
+      encryptedAesKey,
       instituteName,
-      currentGPA,
       examType,
-      examScore,
     } = req.body;
-    const fullName = req.user.username; // Use registered username as full name
+    const fullName = req.user.username;
 
-    // 1. Generate a new random AES key for this application
-    const aesKey = aesUtil.generateKey();
+    // Helper to parse JSON stringified encrypted fields if needed
+    // Multer (if used) might treat them as strings.
+    const parseEncrypted = (field) => {
+      if (typeof field === "string") {
+        try {
+          return JSON.parse(field);
+        } catch (e) {
+          console.error("Failed to parse encrypted field", e);
+          return { iv: "", encryptedData: "" }; // Fail safe or handle error
+        }
+      }
+      return field;
+    };
 
-    // 2. Encrypt sensitive data using the AES key
-    const encryptedBankDetails = aesUtil.encrypt(bankDetails, aesKey);
-    const encryptedIdNumber = aesUtil.encrypt(idNumber, aesKey);
-    const encryptedIncomeDetails = aesUtil.encrypt(incomeDetails, aesKey);
+    const bankDetailsObj = parseEncrypted(encryptedBankDetails);
+    const idNumberObj = parseEncrypted(encryptedIdNumber);
+    const incomeDetailsObj = parseEncrypted(encryptedIncomeDetails);
+    const academicDetailsObj = parseEncrypted(encryptedAcademicDetails);
 
-    // Encrypt Academic Scores
-    const academicData = JSON.stringify({ currentGPA, examScore });
-    const encryptedAcademicDetails = aesUtil.encrypt(academicData, aesKey);
-
-    // 3. Encrypt the AES key using the Server's RSA Public Key
-    // This ensures that even if the database is compromised, the AES key cannot be recovered
-    // without the server's Private Key (which should be stored securely/in memory/HSM).
-    const encryptedAesKey = rsaUtil.encryptWithPublicKey(aesKey);
+    // Validate that we have objects with iv and encryptedData (or content as per Schema)
+    // Client sends: { iv, encryptedData }
+    // Schema expects: { iv, content }
+    // We map them here.
 
     const application = new Application({
       studentId: req.user._id,
@@ -44,20 +51,20 @@ const submitApplication = async (req, res) => {
       instituteName,
       examType,
       encryptedBankDetails: {
-        iv: encryptedBankDetails.iv,
-        content: encryptedBankDetails.encryptedData,
+        iv: bankDetailsObj.iv,
+        content: bankDetailsObj.encryptedData || bankDetailsObj.content,
       },
       encryptedIdNumber: {
-        iv: encryptedIdNumber.iv,
-        content: encryptedIdNumber.encryptedData,
+        iv: idNumberObj.iv,
+        content: idNumberObj.encryptedData || idNumberObj.content,
       },
       encryptedIncomeDetails: {
-        iv: encryptedIncomeDetails.iv,
-        content: encryptedIncomeDetails.encryptedData,
+        iv: incomeDetailsObj.iv,
+        content: incomeDetailsObj.encryptedData || incomeDetailsObj.content,
       },
       encryptedAcademicDetails: {
-        iv: encryptedAcademicDetails.iv,
-        content: encryptedAcademicDetails.encryptedData,
+        iv: academicDetailsObj.iv,
+        content: academicDetailsObj.encryptedData || academicDetailsObj.content,
       },
       encryptedAesKey,
     });
@@ -67,7 +74,6 @@ const submitApplication = async (req, res) => {
 
     // Create and save Document entry linked to application
     const files = req.files || {};
-    // Only create if files exist (or create empty one?)
     if (files.incomeProof || files.marksheet || files.studentCertificate) {
       const doc = await Document.create({
         applicationId: application._id,
@@ -111,35 +117,25 @@ const getMyApplications = async (req, res) => {
       applications.map(async (app) => {
         try {
           // 1. Decrypt AES Key using Server Private Key
-          const aesKey = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
+          const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(
+            app.encryptedAesKey,
+          );
+          // Convert buffer to hex string to send to client
+          const aesKey = aesKeyBuffer.toString("hex");
 
           let qrCode = null;
           if (app.status === "Approved") {
             // Generate QR Code encoding the Public Verify URL
-            // Using hardcoded localhost for demo environment
             const verifyUrl = `http://localhost:5000/api/applications/verify-qr/${app._id}`;
             qrCode = await qrUtil.generateQRCode(verifyUrl);
           }
 
-          // 2. Decrypt fields
-          let academicDetails = {};
-          if (
-            app.encryptedAcademicDetails &&
-            app.encryptedAcademicDetails.content
-          ) {
-            const decryptedAcademicJson = aesUtil.decrypt(
-              app.encryptedAcademicDetails.content,
-              app.encryptedAcademicDetails.iv,
-              aesKey,
-            );
-            academicDetails = JSON.parse(decryptedAcademicJson);
-          }
-
+          // Return Encrypted Data + Decrypted Key
+          // We do NOT decrypt the fields here.
           return {
             _id: app._id,
             fullName: app.fullName,
             status: app.status,
-            // Derive verification status for UI consistency
             verificationStatus:
               app.status === "Submitted"
                 ? "Pending"
@@ -147,42 +143,34 @@ const getMyApplications = async (req, res) => {
                   ? "Verified"
                   : "Rejected",
             verifierComments: app.verifierComments,
-            rejectionReason: app.rejectionReason, // Add rejection reason
+            rejectionReason: app.rejectionReason,
             rejectedAt: app.rejectedAt,
             instituteName: app.instituteName || "N/A",
             examType: app.examType || "N/A",
-            currentGPA: academicDetails.currentGPA || "N/A",
-            examScore: academicDetails.examScore || "N/A",
-            bankDetails: aesUtil.decrypt(
-              app.encryptedBankDetails.content,
-              app.encryptedBankDetails.iv,
-              aesKey,
-            ),
-            idNumber: aesUtil.decrypt(
-              app.encryptedIdNumber.content,
-              app.encryptedIdNumber.iv,
-              aesKey,
-            ),
-            incomeDetails: aesUtil.decrypt(
-              app.encryptedIncomeDetails.content,
-              app.encryptedIncomeDetails.iv,
-              aesKey,
-            ),
+
+            // Pass encrypted objects directly
+            encryptedAcademicDetails: app.encryptedAcademicDetails,
+            encryptedBankDetails: app.encryptedBankDetails,
+            encryptedIdNumber: app.encryptedIdNumber,
+            encryptedIncomeDetails: app.encryptedIncomeDetails,
+
+            decryptedAesKey: aesKey, // The key needed for client-side decryption
+
             createdAt: app.createdAt,
-            digitalSignature: app.digitalSignature, // Include signature
-            dataHash: app.dataHash, // Include hash if needed
-            signedBy: app.signedBy, // Include populated Admin details
+            digitalSignature: app.digitalSignature,
+            dataHash: app.dataHash,
+            signedBy: app.signedBy,
             signedAt: app.signedAt,
             documents: app.documents,
             qrCode: qrCode,
           };
         } catch (err) {
-          console.error("Error decrypting application " + app._id, err);
+          console.error("Error processing application " + app._id, err);
           return {
             _id: app._id,
             fullName: app.fullName,
             status: app.status,
-            error: "Failed to decrypt sensitive data",
+            error: "Failed to process security keys",
           };
         }
       }),
