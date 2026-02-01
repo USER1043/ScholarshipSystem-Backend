@@ -360,7 +360,7 @@ const onboardEmployee = async (req, res) => {
       // await emailService.sendEmail(
       //   email,
       //   "Welcome to SafeApply: Secure Scholarship Application System",
-      //   `You have been invited to join the SafeApply: Secure Scholarship Application System as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
+      //   `You have been invited to join the SafeApply as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
       // );
       console.log(`Invite email sent to ${email}`);
     } catch (emailErr) {
