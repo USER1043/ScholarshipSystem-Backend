@@ -17,7 +17,7 @@ const sendEmail = async (to, subject, text) => {
   const mailOptions = {
     from:
       process.env.EMAIL_USER ||
-      '"SafeApply: Secure Scholarship Application System" <system@example.com>',
+      '"SafeApply: Secure Scholarship Application System" <prjnkrthk@gmail.com>',
     to,
     subject,
     text,
