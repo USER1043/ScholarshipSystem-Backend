@@ -50,7 +50,7 @@ const registerUser = async (req, res) => {
       // Send OTP Email
       console.log("DEV OTP:", otp);
       const emailSubject = "Verify your Email";
-      const emailBody = `Welcome to Secure Scholarship System. Your verification code is ${otp}. It expires in 5 minutes.`;
+      const emailBody = `Welcome to SafeApply: Secure Scholarship Application System. Your verification code is ${otp}. It expires in 5 minutes.`;
       //await emailService.sendEmail(user.email, emailSubject, emailBody);
 
       res.status(201).json({
@@ -359,8 +359,8 @@ const onboardEmployee = async (req, res) => {
     try {
       // await emailService.sendEmail(
       //   email,
-      //   "Welcome to Secure Scholarship System",
-      //   `You have been invited to join the Secure Scholarship System as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
+      //   "Welcome to SafeApply: Secure Scholarship Application System",
+      //   `You have been invited to join the SafeApply: Secure Scholarship Application System as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
       // );
       console.log(`Invite email sent to ${email}`);
     } catch (emailErr) {
