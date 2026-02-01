@@ -1,4 +1,3 @@
-const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const User = require("../models/User");
@@ -6,6 +5,9 @@ const jwt = require("jsonwebtoken");
 const hashUtil = require("../security/hashing/hashUtil");
 const otpService = require("../services/otpService");
 const emailService = require("../services/emailService");
+const totpService = require("../services/totpService");
+const aesUtil = require("../security/encryption/aesUtil");
+const rsaUtil = require("../security/encryption/rsaUtil");
 const crypto = require("crypto");
 
 // Generate JWT
@@ -76,9 +78,6 @@ const registerUser = async (req, res) => {
 // @desc    Login user & Send OTP
 // @route   POST /api/auth/login
 // @access  Public
-const totpService = require("../services/totpService");
-const aesUtil = require("../security/encryption/aesUtil");
-const rsaUtil = require("../security/encryption/rsaUtil");
 
 // @desc    Login user & Send OTP / Verify TOTP Step 1
 // @route   POST /api/auth/login
@@ -522,6 +521,24 @@ const verifyTOTP = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get Server Public Key
+// @route   GET /api/auth/public-key
+// @access  Public
+const getPublicKey = async (req, res) => {
+  try {
+    const publicKeyPath = path.join(__dirname, "../../config/public.pem");
+    if (!fs.existsSync(publicKeyPath)) {
+      return res
+        .status(500)
+        .json({ message: "Public Key Configuration Error" });
+    }
+    const publicKey = fs.readFileSync(publicKeyPath, "utf8");
+    res.json({ publicKey });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to retrieve public key" });
   }
 };
 
