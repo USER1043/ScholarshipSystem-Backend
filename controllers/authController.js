@@ -88,6 +88,16 @@ const loginUser = async (req, res) => {
   try {
     const user = await User.findOne({ email });
 
+    // 0. NIST: Check Account Lockout
+    if (user && user.lockoutUntil && user.lockoutUntil > Date.now()) {
+      const remainingMs = user.lockoutUntil - Date.now();
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      return res.status(423).json({
+        message: `Account temporarily locked. Try again in ${remainingMin} minute(s).`,
+        lockedUntil: user.lockoutUntil,
+      });
+    }
+
     // 1. Check Credentials
     if (user && (await hashUtil.comparePassword(password, user.password))) {
       // 2. NIST: Check Account Status (Identity Verification)
@@ -100,6 +110,7 @@ const loginUser = async (req, res) => {
       // 3. Update Session Info
       user.lastLoginAt = Date.now();
       user.failedLoginAttempts = 0; // Reset on success
+      user.lockoutUntil = undefined; // Clear any previous lockout
       await user.save();
 
       // 4. Device Trust Check (Optional Bypass)
@@ -197,10 +208,22 @@ const loginUser = async (req, res) => {
         });
       }
     } else {
-      // 5. NIST: Handle Failed Login (Lockout Logic needed here later)
-      // Increment failed attempts
+      // 5. NIST: Handle Failed Login with Account Lockout
       if (user) {
         user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+
+        const MAX_FAILED_ATTEMPTS = 5;
+        const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+        if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
+          user.lockoutUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+          await user.save();
+          return res.status(423).json({
+            message: "Too many failed attempts. Account locked for 15 minutes.",
+            lockedUntil: user.lockoutUntil,
+          });
+        }
+
         await user.save();
       }
       res.status(401).json({ message: "Invalid email or password" });
