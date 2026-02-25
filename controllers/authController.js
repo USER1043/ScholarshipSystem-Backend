@@ -53,7 +53,6 @@ const registerUser = async (req, res) => {
 
     if (user) {
       // Send OTP Email
-      console.log("DEV OTP:", otp);
       const emailSubject = "Verify your Email";
       const emailBody = `Welcome to SafeApply: Secure Scholarship Application System. Your verification code is ${otp}. It expires in 5 minutes.`;
       //await emailService.sendEmail(user.email, emailSubject, emailBody);
@@ -164,9 +163,7 @@ const loginUser = async (req, res) => {
           });
         }
       } else {
-        // EMAIL OTP (Student Legacy Flow)
-        console.log(`[LOGIN] Checking existing OTP for user: ${user.email}`);
-
+        // EMAIL OTP (Student Login Flow)
         // Check if OTP already exists and is valid
         if (user.mfaExpiry > Date.now()) {
           console.log(
@@ -189,12 +186,11 @@ const loginUser = async (req, res) => {
         user.mfaExpiry = expiry;
         await user.save();
 
-        console.log("DEV OTP:", otp);
         const emailSubject = "Verification Code";
         const emailBody = `Your OTP code is ${otp}. It expires in 5 minutes.`;
 
         try {
-          // await emailService.sendEmail(user.email, emailSubject, emailBody);
+          await emailService.sendEmail(user.email, emailSubject, emailBody);
           console.log(`[LOGIN] Email sent successfully to ${user.email}`);
         } catch (emailError) {
           console.error(`[LOGIN] Failed to send email: ${emailError.message}`);
@@ -324,12 +320,11 @@ const resendOTP = async (req, res) => {
     await user.save();
 
     // Send OTP via Email
-    console.log("DEV OTP (RESEND):", otp);
-    // await emailService.sendEmail(
-    //   user.email,
-    //   "Verification Code",
-    //   `Your new OTP code is ${otp}. It expires in 5 minutes.`,
-    // );
+    await emailService.sendEmail(
+      user.email,
+      "Verification Code",
+      `Your new OTP code is ${otp}. It expires in 5 minutes.`,
+    );
 
     res.json({ message: "New OTP sent to your email" });
   } catch (error) {
@@ -382,22 +377,15 @@ const onboardEmployee = async (req, res) => {
 
     // Actually send the email via configured Email Service
     try {
-      // await emailService.sendEmail(
-      //   email,
-      //   "Welcome to SafeApply: Secure Scholarship Application System",
-      //   `You have been invited to join the SafeApply as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
-      // );
+      await emailService.sendEmail(
+        email,
+        "Welcome to SafeApply: Secure Scholarship Application System",
+        `You have been invited to join the SafeApply as a ${role}.\n\nPlease click the following link to set up your account credentials:\n\n${inviteLink}\n\nThis link is valid for 24 hours.`,
+      );
       console.log(`Invite email sent to ${email}`);
     } catch (emailErr) {
       console.error("Failed to send invite email:", emailErr);
-      // We might want to warn but not fail the transaction?
-      // Better to fail so Admin knows.
-      // For Lab: Log it and proceed with returning it in JSON as backup.
     }
-
-    console.log("------------------------------------------------");
-    console.log("INVITE LINK (Backup):", inviteLink);
-    console.log("------------------------------------------------");
 
     res.status(201).json({
       message: "Employee invited. Invitation link sent to email.",

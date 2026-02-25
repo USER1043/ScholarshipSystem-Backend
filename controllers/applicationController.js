@@ -194,12 +194,6 @@ const verifySignature = async (req, res) => {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    // Debug Logs for Digital Signature
-    console.log(`[VERIFY] App ID: ${application._id}`);
-    console.log(
-      `[VERIFY] Stored Signature: ${application.digitalSignature ? "EXISTS" : "MISSING"}`,
-    );
-
     if (!application.digitalSignature) {
       return res.status(400).json({ message: "Application is not signed yet" });
     }
@@ -221,25 +215,15 @@ const verifySignature = async (req, res) => {
         : undefined, // Ensure this matches exactly!
     };
 
-    console.log(
-      "[VERIFY] Data to Verify Objects:",
-      JSON.stringify(dataToVerify, null, 2),
-    );
-
     // 1. Verify Hash Integrity
     const computedHash = digitalSignature.hashData(dataToVerify);
     const hashMatch = computedHash === application.dataHash;
-
-    console.log(`[VERIFY] Stored Hash:   ${application.dataHash}`);
-    console.log(`[VERIFY] Computed Hash: ${computedHash}`);
-    console.log(`[VERIFY] Hash Match:    ${hashMatch}`);
 
     // 2. Verify Digital Signature
     const signatureValid = digitalSignature.verifySignature(
       dataToVerify,
       application.digitalSignature,
     );
-    console.log(`[VERIFY] Signature Valid: ${signatureValid}`);
 
     if (hashMatch && signatureValid) {
       res.json({
