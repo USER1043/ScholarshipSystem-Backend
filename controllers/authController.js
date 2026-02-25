@@ -529,7 +529,7 @@ const verifyTOTP = async (req, res) => {
 // @access  Public
 const getPublicKey = async (req, res) => {
   try {
-    const publicKeyPath = path.join(__dirname, "../../config/public.pem");
+    const publicKeyPath = path.join(__dirname, "../config/public.pem");
     if (!fs.existsSync(publicKeyPath)) {
       return res
         .status(500)
