@@ -23,21 +23,18 @@ router.post(
     { name: "studentCertificate", maxCount: 1 },
   ]),
   [
-    check("bankDetails", "Bank Details are required").not().isEmpty(),
-    check("idNumber", "Aadhar ID is required").not().isEmpty(),
-    check("incomeDetails", "Income Details are required").not().isEmpty(),
-    // New Academic Validations
+    check("encryptedBankDetails", "Bank Details are required").not().isEmpty(),
+    check("encryptedIdNumber", "Aadhar ID is required").not().isEmpty(),
+    check("encryptedIncomeDetails", "Income Details are required").not().isEmpty(),
+    check("encryptedAcademicDetails", "Academic Details are required").not().isEmpty(),
+    check("encryptedAesKey", "Encryption key is required").not().isEmpty(),
+    // Non-encrypted fields
     check("instituteName", "Institute Name is required").not().isEmpty(),
-    check("currentGPA", "GPA must be between 0 and 10").isFloat({
-      min: 0,
-      max: 10,
-    }),
     check("examType", "Exam Type must be JEE, NEET, or GATE").isIn([
       "JEE",
       "NEET",
       "GATE",
     ]),
-    check("examScore", "Exam Score is required").isNumeric(),
     validate,
   ],
   submitApplication,

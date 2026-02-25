@@ -21,7 +21,7 @@ const ensureKeys = () => {
                 format: 'pem',
             }
         });
-        
+
         fs.writeFileSync(PUBLIC_KEY_PATH, publicKey);
         fs.writeFileSync(PRIVATE_KEY_PATH, privateKey);
         console.log("RSA Key Pair generated and saved to config/.");
@@ -37,7 +37,14 @@ const encryptWithPublicKey = (data) => {
     ensureKeys();
     const publicKey = fs.readFileSync(PUBLIC_KEY_PATH, 'utf8');
     const buffer = Buffer.from(data);
-    const encrypted = crypto.publicEncrypt(publicKey, buffer);
+    const encrypted = crypto.publicEncrypt(
+        {
+            key: publicKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha256',
+        },
+        buffer
+    );
     return encrypted.toString('base64');
 };
 
@@ -50,7 +57,14 @@ const decryptWithPrivateKey = (encryptedData) => {
     ensureKeys();
     const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
     const buffer = Buffer.from(encryptedData, 'base64');
-    const decrypted = crypto.privateDecrypt(privateKey, buffer);
+    const decrypted = crypto.privateDecrypt(
+        {
+            key: privateKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha256',
+        },
+        buffer
+    );
     return decrypted;
 };
 
