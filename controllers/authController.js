@@ -373,7 +373,7 @@ const onboardEmployee = async (req, res) => {
       process.env.JWT_SECRET || "secret_key_change_me",
       { expiresIn: "24h" },
     );
-    const inviteLink = `http://localhost:5173/setup-account?token=${inviteToken}`;
+    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/setup-account?token=${inviteToken}`;
 
     // Actually send the email via configured Email Service
     try {

@@ -126,7 +126,7 @@ const getMyApplications = async (req, res) => {
           let qrCode = null;
           if (app.status === "Approved") {
             // Generate QR Code encoding the Public Verify URL
-            const verifyUrl = `http://localhost:5000/api/applications/verify-qr/${app._id}`;
+            const verifyUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/applications/verify-qr/${app._id}`;
             qrCode = await qrUtil.generateQRCode(verifyUrl);
           }
 

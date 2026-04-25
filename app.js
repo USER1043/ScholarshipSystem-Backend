@@ -14,7 +14,10 @@ const app = express();
 
 // Global Middlewares
 app.use(helmet()); // Security headers
-app.use(cors()); // CORS support
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+})); // CORS support
 app.use(express.json()); // Parse JSON body
 app.use(cookieParser()); // Parse cookies
 app.use('/api/', apiLimiter); // Rate limiting for all API routes
