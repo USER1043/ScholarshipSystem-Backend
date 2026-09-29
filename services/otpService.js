@@ -1,11 +1,12 @@
 const crypto = require('crypto');
 
 /**
- * Generate a 6-digit numeric OTP
+ * Generate a 6-digit numeric OTP using a cryptographically secure RNG
  * @returns {string}
  */
 const generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // randomInt's upper bound is exclusive: yields 100000–999999
+    return crypto.randomInt(100000, 1000000).toString();
 };
 
 /**
