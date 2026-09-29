@@ -56,7 +56,11 @@ const registerUser = async (req, res) => {
       // Send OTP Email
       const emailSubject = "Verify your Email";
       const emailBody = `Welcome to SafeApply: Secure Scholarship Application System. Your verification code is ${otp}. It expires in 5 minutes.`;
-      //await emailService.sendEmail(user.email, emailSubject, emailBody);
+      try {
+        await emailService.sendEmail(user.email, emailSubject, emailBody);
+      } catch (emailError) {
+        console.error(`[REGISTER] Failed to send email: ${emailError.message}`);
+      }
 
       res.status(201).json({
         _id: user._id,
