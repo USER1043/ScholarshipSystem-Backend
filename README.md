@@ -16,6 +16,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the request pip
 - **Authentication:** JWT, bcryptjs
 - **Security:** Helmet, Express Rate Limit, Speakeasy (TOTP), Node `crypto` (AES-256, RSA-4096, SHA-256)
 - **File Handling:** Multer
+- **Email:** Brevo transactional email API (HTTP, no SMTP)
 - **Validation:** Express Validator
 
 ## Features
@@ -27,7 +28,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the request pip
 - **Digital Signatures:** Approvals are signed with RSA-SHA256, and a verification endpoint detects tampered records.
 - **QR Code Verification:** Approved scholarships get a QR code linking to a public status-check endpoint.
 - **Secure File Uploads:** PDFs and images only, up to 5 MB, downloadable only by the owning student or staff.
-- **Email Notifications:** Integrated with Nodemailer.
+- **Email Notifications:** OTPs and staff invites are sent through the [Brevo](https://www.brevo.com/) transactional email API.
 
 ## Security Design
 
@@ -72,8 +73,9 @@ Create a `.env` file in the project root with the following variables:
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=random_string_of_at_least_32_characters
-EMAIL_USER=your_email_address
-EMAIL_PASS=your_email_password
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=verified_sender@yourdomain.com
+BREVO_SENDER_NAME=SafeApply
 SUPER_ADMIN_EMAIL=super_admin_email
 SUPER_ADMIN_PASSWORD=super_admin_password
 FRONTEND_URL=http://localhost:5173
@@ -86,6 +88,7 @@ BACKEND_URL=http://localhost:5000
   ```
 - `FRONTEND_URL` is the only origin allowed by CORS and is used in staff invite links.
 - `BACKEND_URL` is encoded into the QR codes for approved scholarships.
+- `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` are required to send OTP and invite emails. The sender address must be verified in your Brevo account. `BREVO_SENDER_NAME` is optional and defaults to `SafeApply`.
 
 ## Getting Started
 

@@ -48,7 +48,7 @@ flowchart LR
     end
 
     DB[("MongoDB<br/>users, applications, documents")]
-    SMTP["Gmail SMTP<br/>(Nodemailer)"]
+    SMTP["Brevo<br/>transactional email API"]
 
     SPA -- "HTTPS + JWT<br/>ciphertext on submit" --> API
     Scanner -- "GET /api/applications/verify-qr/:id" --> API
@@ -116,7 +116,7 @@ sequenceDiagram
     participant SPA as React SPA
     participant API as POST /api/auth/login
     participant DB as MongoDB
-    participant Mail as Gmail SMTP
+    participant Mail as Brevo email API
 
     U->>SPA: email + password
     SPA->>API: login request (loginLimiter: 5 per 15 min per IP)
@@ -167,7 +167,7 @@ sequenceDiagram
     participant SPA as React SPA
     participant API as POST /api/auth/register
     participant DB as MongoDB
-    participant Mail as Gmail SMTP
+    participant Mail as Brevo email API
 
     S->>SPA: name, email, password
     SPA->>API: register request (validated: email format, password 6+ chars)
@@ -190,7 +190,7 @@ sequenceDiagram
     actor A as Admin
     participant API as Backend API
     participant DB as MongoDB
-    participant Mail as Gmail SMTP
+    participant Mail as Brevo email API
     actor N as New staff member
 
     A->>API: POST /api/auth/onboard { username, email, role }<br/>(protect + authorize('admin'))
@@ -402,7 +402,7 @@ erDiagram
 | `config/public.pem` | Wrapping AES keys (browser); verifying signatures | Server disk, served by `GET /api/auth/public-key` | Public by design. It must match `private.pem`. |
 | Per-application AES-256 key | One application's sensitive fields | Stored only in wrapped (RSA-encrypted) form in `encryptedAesKey` | Plain form exists only briefly in the student's browser and in server memory during decryption. |
 | Staff TOTP secret | Staff second factor | `mfaSecret`, AES-encrypted with an RSA-wrapped key | Re-enroll the staff member. |
-| `EMAIL_PASS` | Sending OTPs and invites | `.env` | Rotate the Gmail app password. |
+| `BREVO_API_KEY` | Sending OTPs and invites | `.env` | **Leaked:** anyone can send email as your verified sender; revoke it in Brevo and create a new key. |
 
 If either `.pem` file is missing, `rsaUtil.ensureKeys()` generates a **new** key pair. On a server with existing data, that makes everything already stored undecryptable.
 
