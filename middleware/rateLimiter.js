@@ -12,7 +12,7 @@ const apiLimiter = rateLimit({
 // Stricter limiter for login (brute force protection)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 5 login requests per windowMs
+  max: 5, // Limit each IP to 5 login requests per windowMs
   message: "Too many login attempts, please try again after 15 minutes",
 });
 
