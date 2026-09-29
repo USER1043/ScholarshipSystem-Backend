@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getJwtSecret, JWT_ALGORITHMS } = require('../config/jwt');
 
 const protect = async (req, res, next) => {
     let token;
@@ -8,7 +9,12 @@ const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_change_me');
+            const decoded = jwt.verify(token, getJwtSecret(), { algorithms: JWT_ALGORITHMS });
+
+            // Only session tokens may authenticate API calls (rejects e.g. invite tokens)
+            if (decoded.type !== 'access') {
+                return res.status(401).json({ message: 'Not authorized, invalid token type' });
+            }
             
             // Check if user still exists
             req.user = await User.findById(decoded.id).select('-password');

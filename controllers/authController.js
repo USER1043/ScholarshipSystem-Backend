@@ -9,10 +9,11 @@ const totpService = require("../services/totpService");
 const aesUtil = require("../security/encryption/aesUtil");
 const rsaUtil = require("../security/encryption/rsaUtil");
 const crypto = require("crypto");
+const { getJwtSecret, JWT_ALGORITHMS } = require("../config/jwt");
 
 // Generate JWT
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "secret_key_change_me", {
+  return jwt.sign({ id, type: "access" }, getJwtSecret(), {
     expiresIn: "30d",
   });
 };
@@ -370,7 +371,7 @@ const onboardEmployee = async (req, res) => {
     // Generate Invite Token (valid for 24h)
     const inviteToken = jwt.sign(
       { id: user._id, type: "invite" },
-      process.env.JWT_SECRET || "secret_key_change_me",
+      getJwtSecret(),
       { expiresIn: "24h" },
     );
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/setup-account?token=${inviteToken}`;
@@ -404,10 +405,9 @@ const completeOnboarding = async (req, res) => {
 
   try {
     // Verify Token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "secret_key_change_me",
-    );
+    const decoded = jwt.verify(token, getJwtSecret(), {
+      algorithms: JWT_ALGORITHMS,
+    });
     if (decoded.type !== "invite") {
       return res.status(400).json({ message: "Invalid token type" });
     }

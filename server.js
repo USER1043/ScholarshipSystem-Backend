@@ -3,6 +3,15 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const connectDB = require('./config/db');
+const { getJwtSecret } = require('./config/jwt');
+
+// Fail fast if the JWT secret is missing or weak
+try {
+    getJwtSecret();
+} catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+}
 const app = require('./app');
 
 // Connect to Database
