@@ -1,6 +1,5 @@
 const Application = require("../models/Application");
-const aesUtil = require("../security/encryption/aesUtil");
-const rsaUtil = require("../security/encryption/rsaUtil");
+const { decryptApplicationFields } = require("../security/encryption/applicationCrypto");
 
 // @desc    Get all applications (for Verifier)
 // @route   GET /api/verifier/applications
@@ -11,12 +10,12 @@ const getAllApplications = async (req, res) => {
       .populate("studentId", "username email")
       .populate("documents");
 
-    // Decrypt data for verification
-    // Decrypt AES Key for Client-Side Decryption
+    // Decrypt server-side: only the fields a verifier reviews are returned,
+    // and the AES key never leaves the server
     const decryptedApplications = applications.map((app) => {
       try {
-        const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
-        const aesKey = aesKeyBuffer.toString("hex");
+        const { incomeDetails, idNumber, academicDetails } =
+          decryptApplicationFields(app, ["incomeDetails", "idNumber", "academicDetails"]);
 
         return {
           _id: app._id,
@@ -26,13 +25,9 @@ const getAllApplications = async (req, res) => {
           verificationStatus: app.verificationStatus,
           verifierComments: app.verifierComments,
 
-          // Pass Encrypted Data + Key
-          encryptedBankDetails: app.encryptedBankDetails,
-          encryptedIdNumber: app.encryptedIdNumber,
-          encryptedIncomeDetails: app.encryptedIncomeDetails,
-          encryptedAcademicDetails: app.encryptedAcademicDetails,
-
-          decryptedAesKey: aesKey,
+          incomeDetails,
+          idNumber,
+          academicDetails,
 
           // Legacy / Plain text fallback
           instituteName: app.instituteName || "N/A",

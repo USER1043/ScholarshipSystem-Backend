@@ -2,8 +2,7 @@ const Application = require("../models/Application");
 const User = require("../models/User");
 
 const digitalSignature = require("../security/signature/digitalSignature");
-const aesUtil = require("../security/encryption/aesUtil");
-const rsaUtil = require("../security/encryption/rsaUtil");
+const { decryptApplicationFields } = require("../security/encryption/applicationCrypto");
 const qrUtil = require("../security/encoding/qrUtil");
 
 // @desc    Get all verified applications
@@ -18,10 +17,14 @@ const getVerifiedApplications = async (req, res) => {
 
     // Return summary or decrypted?
     // Admin needs to see details to approve.
+    // Decrypt server-side: admins only need income + academic details to
+    // approve, and the AES key never leaves the server
     const decryptedApplications = applications.map((app) => {
       try {
-        const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(app.encryptedAesKey);
-        const aesKey = aesKeyBuffer.toString("hex");
+        const { incomeDetails, academicDetails } = decryptApplicationFields(
+          app,
+          ["incomeDetails", "academicDetails"],
+        );
 
         return {
           _id: app._id,
@@ -31,13 +34,8 @@ const getVerifiedApplications = async (req, res) => {
           verificationStatus: app.verificationStatus,
           verifierComments: app.verifierComments,
 
-          // Pass Encrypted Data + Key
-          encryptedIncomeDetails: app.encryptedIncomeDetails,
-          encryptedAcademicDetails: app.encryptedAcademicDetails,
-          encryptedBankDetails: app.encryptedBankDetails,
-          encryptedIdNumber: app.encryptedIdNumber,
-
-          decryptedAesKey: aesKey,
+          incomeDetails,
+          academicDetails,
 
           // Keep non-sensitive plain text
           instituteName: app.instituteName || "N/A",

@@ -1,7 +1,6 @@
 const Application = require("../models/Application");
 const Document = require("../models/Document");
-const aesUtil = require("../security/encryption/aesUtil");
-const rsaUtil = require("../security/encryption/rsaUtil");
+const { decryptApplicationFields } = require("../security/encryption/applicationCrypto");
 const digitalSignature = require("../security/signature/digitalSignature");
 const qrUtil = require("../security/encoding/qrUtil");
 
@@ -116,12 +115,14 @@ const getMyApplications = async (req, res) => {
     const decryptedApplications = await Promise.all(
       applications.map(async (app) => {
         try {
-          // 1. Decrypt AES Key using Server Private Key
-          const aesKeyBuffer = rsaUtil.decryptWithPrivateKey(
-            app.encryptedAesKey,
-          );
-          // Convert buffer to hex string to send to client
-          const aesKey = aesKeyBuffer.toString("hex");
+          // Decrypt the student's own data server-side; the AES key never leaves the server
+          const { bankDetails, idNumber, incomeDetails, academicDetails } =
+            decryptApplicationFields(app, [
+              "bankDetails",
+              "idNumber",
+              "incomeDetails",
+              "academicDetails",
+            ]);
 
           let qrCode = null;
           if (app.status === "Approved") {
@@ -130,8 +131,6 @@ const getMyApplications = async (req, res) => {
             qrCode = await qrUtil.generateQRCode(verifyUrl);
           }
 
-          // Return Encrypted Data + Decrypted Key
-          // We do NOT decrypt the fields here.
           return {
             _id: app._id,
             fullName: app.fullName,
@@ -148,13 +147,11 @@ const getMyApplications = async (req, res) => {
             instituteName: app.instituteName || "N/A",
             examType: app.examType || "N/A",
 
-            // Pass encrypted objects directly
-            encryptedAcademicDetails: app.encryptedAcademicDetails,
-            encryptedBankDetails: app.encryptedBankDetails,
-            encryptedIdNumber: app.encryptedIdNumber,
-            encryptedIncomeDetails: app.encryptedIncomeDetails,
-
-            decryptedAesKey: aesKey, // The key needed for client-side decryption
+            bankDetails,
+            idNumber,
+            incomeDetails,
+            currentGPA: academicDetails ? academicDetails.currentGPA : null,
+            examScore: academicDetails ? academicDetails.examScore : null,
 
             createdAt: app.createdAt,
             digitalSignature: app.digitalSignature,
