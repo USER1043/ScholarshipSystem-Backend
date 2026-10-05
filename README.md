@@ -8,6 +8,8 @@ The Frontend code is at [Repo](https://github.com/USER1043/ScholarshipSystem-Fro
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the request pipeline, login and MFA flows, the encryption model, the application lifecycle, approval signing and the data model.
 
+New here? Start with the [Contributor Guide](docs/CONTRIBUTOR_GUIDE.md): local setup, a code tour, design decisions and trade-offs, known quirks, and a testing checklist.
+
 ## Tech Stack
 
 - **Runtime:** Node.js
