@@ -27,7 +27,12 @@ const decryptApplicationFields = (app, fields) => {
             result[field] = null;
             return;
         }
-        const plaintext = aesUtil.decrypt(encrypted.content, encrypted.iv, aesKey);
+        const plaintext = aesUtil.decrypt(
+            encrypted.content,
+            encrypted.iv,
+            aesKey,
+            encrypted.authTag,
+        );
         result[field] = field === 'academicDetails' ? JSON.parse(plaintext) : plaintext;
     });
 

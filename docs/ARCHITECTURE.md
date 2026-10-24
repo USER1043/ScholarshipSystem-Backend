@@ -224,8 +224,8 @@ sequenceDiagram
     API->>M: upload.fields()
     M->>M: accept only PDF or image, max 5 MB each
     M->>FS: save as fieldname-timestamp-random.ext
-    API->>API: validators: encrypted fields and key present,<br/>examType in JEE / NEET / GATE
-    API->>DB: save Application<br/>{ iv, content } per encrypted field + encryptedAesKey
+    API->>API: validators: encrypted fields and key present,<br/>examType in JEE / NEET / GATE,<br/>authTag present on every encrypted field
+    API->>DB: save Application<br/>{ iv, content, authTag } per encrypted field + encryptedAesKey
     API->>DB: save Document (file names), link to Application
     API-->>SPA: 201 { applicationId }
 ```
@@ -367,10 +367,10 @@ erDiagram
         string fullName "plaintext"
         string instituteName "plaintext"
         string examType "JEE | NEET | GATE"
-        object encryptedBankDetails "AES iv + content"
-        object encryptedIdNumber "AES iv + content"
-        object encryptedIncomeDetails "AES iv + content"
-        object encryptedAcademicDetails "AES iv + content (GPA, exam score)"
+        object encryptedBankDetails "AES-GCM iv + content + authTag"
+        object encryptedIdNumber "AES-GCM iv + content + authTag"
+        object encryptedIncomeDetails "AES-GCM iv + content + authTag"
+        object encryptedAcademicDetails "AES-GCM iv + content + authTag (GPA, exam score)"
         string encryptedAesKey "RSA-OAEP wrapped AES key"
         string status "Submitted | Verified | Approved | Rejected"
         string verifierComments
@@ -448,7 +448,7 @@ router.post(
 ### Adding a new encrypted field
 
 1. **Frontend:** encrypt the value with `encryptWithAES` in `ApplyScholarship.jsx` and append it to the form data.
-2. **Model:** add an `{ iv, content }` field to `models/Application.js`.
+2. **Model:** add an `{ iv, content, authTag }` field to `models/Application.js`.
 3. **Submit:** map it in `submitApplication` and add a validator in `routes/applicationRoutes.js`.
 4. **Decryption:** add it to `ENCRYPTED_FIELDS` in `security/encryption/applicationCrypto.js`.
 5. **Access:** add it to the field list of each role that needs it (`applicationController.js`, `verifierController.js`, `adminController.js`).

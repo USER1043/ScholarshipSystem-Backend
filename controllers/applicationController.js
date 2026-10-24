@@ -39,10 +39,20 @@ const submitApplication = async (req, res) => {
     const incomeDetailsObj = parseEncrypted(encryptedIncomeDetails);
     const academicDetailsObj = parseEncrypted(encryptedAcademicDetails);
 
-    // Validate that we have objects with iv and encryptedData (or content as per Schema)
-    // Client sends: { iv, encryptedData }
-    // Schema expects: { iv, content }
+    // Client sends: { iv, encryptedData, authTag } (AES-256-GCM)
+    // Schema expects: { iv, content, authTag }
     // We map them here.
+
+    // Every encrypted field must carry an AES-GCM auth tag
+    const encryptedFields = [
+      bankDetailsObj,
+      idNumberObj,
+      incomeDetailsObj,
+      academicDetailsObj,
+    ];
+    if (encryptedFields.some((field) => !field || !field.authTag)) {
+      return res.status(400).json({ message: "Invalid encrypted data" });
+    }
 
     const application = new Application({
       studentId: req.user._id,
@@ -52,18 +62,22 @@ const submitApplication = async (req, res) => {
       encryptedBankDetails: {
         iv: bankDetailsObj.iv,
         content: bankDetailsObj.encryptedData || bankDetailsObj.content,
+        authTag: bankDetailsObj.authTag,
       },
       encryptedIdNumber: {
         iv: idNumberObj.iv,
         content: idNumberObj.encryptedData || idNumberObj.content,
+        authTag: idNumberObj.authTag,
       },
       encryptedIncomeDetails: {
         iv: incomeDetailsObj.iv,
         content: incomeDetailsObj.encryptedData || incomeDetailsObj.content,
+        authTag: incomeDetailsObj.authTag,
       },
       encryptedAcademicDetails: {
         iv: academicDetailsObj.iv,
         content: academicDetailsObj.encryptedData || academicDetailsObj.content,
+        authTag: academicDetailsObj.authTag,
       },
       encryptedAesKey,
     });

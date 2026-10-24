@@ -147,7 +147,7 @@ const loginUser = async (req, res) => {
 
           // Store as JSON string
           user.mfaSecret = JSON.stringify({
-            secret: encryptedSecret, // { iv, encryptedData }
+            secret: encryptedSecret, // { iv, encryptedData, authTag }
             key: encryptedAesKey,
           });
 
@@ -498,6 +498,7 @@ const verifyTOTP = async (req, res) => {
         secretData.secret.encryptedData,
         secretData.secret.iv,
         aesKey,
+        secretData.secret.authTag,
       );
       secretBase32 = decryptedSecret;
     } catch (err) {

@@ -13,19 +13,21 @@ const applicationSchema = new mongoose.Schema(
       required: true,
     },
     // Sensitive fields are stored as encrypted strings
-    // We store them as a JSON string of { iv, encryptedData } or just the encrypted hex?
-    // Let's store structured encrypted data for easier decryption
+    // Each is AES-256-GCM { iv, content, authTag } (all hex)
     encryptedBankDetails: {
       iv: String,
       content: String,
+      authTag: String,
     },
     encryptedIdNumber: {
       iv: String,
       content: String,
+      authTag: String,
     },
     encryptedIncomeDetails: {
       iv: String,
       content: String,
+      authTag: String,
     },
     // New Academic Details
     instituteName: {
@@ -41,6 +43,7 @@ const applicationSchema = new mongoose.Schema(
     encryptedAcademicDetails: {
       iv: String,
       content: String,
+      authTag: String,
     },
     // File Upload Paths (Reference to distinct Document model)
     documents: {
