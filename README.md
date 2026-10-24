@@ -63,7 +63,7 @@ This protects data at rest (database, backups, logs). It is **not** end-to-end e
 
 ## Prerequisites
 
-- Node.js (v18+ recommended)
+- Node.js 20.19+ (required by Mongoose 9)
 - MongoDB (Local or AtlasURI)
 - npm or yarn
 

@@ -40,7 +40,7 @@ SafeApply is a scholarship application system with three roles:
 
 The interesting engineering is in four places:
 
-1. **Hybrid encryption**: sensitive fields are encrypted in the browser (AES-256-CBC), and the AES key is wrapped with the server's RSA-4096 public key. The database never holds plaintext.
+1. **Hybrid encryption**: sensitive fields are encrypted in the browser (AES-256-GCM, so tampering is detected on decryption), and the AES key is wrapped with the server's RSA-4096 public key. The database never holds plaintext.
 2. **Least-privilege decryption**: the server decrypts, but each role's endpoint asks for only the fields that role needs.
 3. **Two-factor login** for everyone: email OTP for students, authenticator app (TOTP) for staff.
 4. **Digital signatures**: an approval is signed (RSA-SHA256) so later changes to the record can be detected.
@@ -49,7 +49,7 @@ The interesting engineering is in four places:
 
 ## 2. Run it locally
 
-You need Node.js 18+ and a MongoDB instance (local, or a free Atlas cluster). The full environment variable list is in the [README](../README.md#environment-variables).
+You need Node.js 20.19+ (required by Mongoose 9) and a MongoDB instance (local, or a free Atlas cluster). The full environment variable list is in the [README](../README.md#environment-variables).
 
 ```bash
 npm install
@@ -79,7 +79,7 @@ Notes that save time:
 
 **1. Every protected route is the same chain.** `protect` (who are you) → `authorize(role)` (are you allowed) → validators → `validate` → controller. If you remember one convention, remember this. Role checks live on the server in `routes/`; the frontend guards only hide screens.
 
-**2. Encrypted fields are `{ iv, content }` pairs plus one wrapped key per application.** `decryptApplicationFields(app, ['incomeDetails', ...])` in `security/encryption/applicationCrypto.js` is the only place that turns ciphertext back into plaintext for application data. To change who can see what, change the list of field names a controller passes in.
+**2. Encrypted fields are `{ iv, content, authTag }` objects (AES-256-GCM) plus one wrapped key per application.** `decryptApplicationFields(app, ['incomeDetails', ...])` in `security/encryption/applicationCrypto.js` is the only place that turns ciphertext back into plaintext for application data. To change who can see what, change the list of field names a controller passes in.
 
 **3. Status changes are enforced in controllers, not in the schema.** The `status` enum only lists the legal values; the *transitions* (`Submitted → Verified → Approved`, `Rejected` from any non-approved state) are `if` checks in `verifierController.js` and `adminController.js`.
 
@@ -119,7 +119,7 @@ Login has its own trace: `loginUser` → (`verifyOTP` or `verifyTOTP`) → `gene
 | **TOTP secret encrypted at rest with the same hybrid scheme** | Plain text | Reuses the existing crypto; a database leak does not reveal authenticator secrets | Needs the private key to log staff in |
 | **Invite-only staff accounts** | Self-signup with role selection | Privilege cannot be self-assigned; `register` hard-codes `role: "student"` | Needs an admin to bootstrap (hence `seedAdmin.js`) |
 | **Account lockout (5 failures, 15 min) plus per-IP rate limits** | Rate limit only | Slows password guessing against one account from many IPs | An attacker can lock out a known email (a denial-of-service trade-off) |
-| **MongoDB with Mongoose** | SQL | Application documents embed `{ iv, content }` objects naturally; a small, flat set of collections | No multi-document transactions are used, so `submitApplication` saves the `Application` and then the `Document` in two steps |
+| **MongoDB with Mongoose** | SQL | Application documents embed `{ iv, content, authTag }` objects naturally; a small, flat set of collections | No multi-document transactions are used, so `submitApplication` saves the `Application` and then the `Document` in two steps |
 
 ## 6. Quirks and gotchas in the current code
 
@@ -177,6 +177,8 @@ Run the ones your change could affect. `TOKEN` is a JWT from a completed login.
 | Lifecycle | Reject an `Approved` application | 400 |
 | Lifecycle | `PUT /api/verifier/applications/:id` with `status: "Rejected"` | 403 |
 | Crypto | Submit as a student, then read it as student, verifier, admin | Each role sees only its fields (README table) |
+| Crypto | Change one hex character of a stored field's `content` (or `authTag`) in MongoDB, then load it as the verifier | That application fails to decrypt (an error entry) instead of showing altered data; the rest of the list still loads |
+| Crypto | `POST /api/applications` with an encrypted field missing `authTag` | 400 "Invalid encrypted data" |
 | Signature | Approve, then `GET /verify-signature/:id` | `valid` |
 | Signature | Edit `instituteName` of the approved document in MongoDB, check again | `tampered` |
 | Upload | Upload a `.txt` file, and a file over 5 MB | Rejected (currently as 500, see section 6) |
@@ -194,7 +196,7 @@ If you change which fields go into the signed record, also approve a **new** app
 Use these to check your understanding of the codebase. Short answers follow each.
 
 **Why hybrid encryption instead of only RSA, or only AES?**
-RSA-4096 with OAEP-SHA256 can encrypt only a small payload, so it wraps a 32-byte AES key; AES-256-CBC encrypts the actual data quickly. You get fast bulk encryption and no shared secret to distribute.
+RSA-4096 with OAEP-SHA256 can encrypt only a small payload, so it wraps a 32-byte AES key; AES-256-GCM encrypts the actual data quickly and adds an auth tag, so modified ciphertext fails to decrypt instead of returning altered data. You get fast bulk encryption and no shared secret to distribute.
 
 **If the server can decrypt everything, why encrypt in the browser at all?**
 It protects data at rest (database, backups) and keeps plaintext out of the database and anything between the browser and the app's own decryption code. It is deliberately **not** end-to-end encryption; the README and architecture document say so explicitly. The honest threat model is "database leak", not "server compromise".
