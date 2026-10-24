@@ -36,9 +36,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for diagrams of the request pip
 
 Sensitive application fields (bank details, Aadhaar ID, income, GPA and exam score) are encrypted **in the browser** before submission:
 
-1. The browser generates a random AES-256-CBC key for the application and encrypts the fields with it.
+1. The browser generates a random AES-256 key for the application and encrypts the fields with it using AES-256-GCM. Each field carries an authentication tag, so modified ciphertext fails to decrypt instead of returning altered data.
 2. The browser encrypts that AES key with the server's RSA-4096 public key (OAEP, SHA-256).
-3. MongoDB stores only the ciphertext and the wrapped key.
+3. MongoDB stores only the ciphertext, IV and auth tag of each field, and the wrapped key.
 
 Decryption happens **only on the server** (`security/encryption/applicationCrypto.js`). AES keys are never sent to the browser, and each role receives only the fields it needs:
 
